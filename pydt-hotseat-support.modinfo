@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Mod id="pydt-hotseat-limiter" version="1"
+    xmlns="ModInfo">
+    <Properties>
+        <Name>PYDT Hotseat Support</Name>
+        <Description>Tweaks to make PYDT games work!</Description>
+        <Authors>Mike Rosack, playyourdamnturn.com</Authors>
+        <EnabledByDefault>0</EnabledByDefault>
+    </Properties>
+    <Dependencies>
+        <Mod id="base-standard" title="Base Game"/>
+    </Dependencies>
+    <ActionCriteria>
+        <Criteria id="always">
+            <AlwaysMet/>
+        </Criteria>
+    </ActionCriteria>
+    <ActionGroups>
+        <ActionGroup id="pydt-hotseat-limiter-main" scope="game" criteria="always">
+            <Actions>
+                <ImportFiles>
+                    <Item>ui-next/screens/hotseat/hotseat-curtain.js</Item>
+                </ImportFiles>
+            </Actions>
+        </ActionGroup>
+    </ActionGroups>
+</Mod>
