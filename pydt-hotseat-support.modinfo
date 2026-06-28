@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Mod id="pydt-hotseat-limiter" version="1"
+<Mod id="pydt-hotseat-limiter" version="2"
     xmlns="ModInfo">
     <Properties>
         <Name>PYDT Hotseat Support</Name>
@@ -20,6 +20,7 @@
             <Actions>
                 <ImportFiles>
                     <Item>ui-next/screens/hotseat/hotseat-curtain.js</Item>
+                    <Item>ui/diplo-ribbon/model-diplo-ribbon.js</Item>
                 </ImportFiles>
             </Actions>
         </ActionGroup>

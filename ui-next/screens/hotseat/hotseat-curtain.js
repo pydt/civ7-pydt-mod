@@ -26,12 +26,27 @@ var _tmpl$ = /* @__PURE__ */ template(`<div class="ps-btn-icon ps-bar-pause"></d
 // Persists across component instances so the second curtain appearance is disabled.
 let turnStartedCount = 0;
 
+// Reads the display name for the given player ID from the PYDT property.
+// The API encodes names as |names=<base64(JSON)> on the PYDT_TURN string.
+function getPydtPlayerName(playerID) {
+  const pydtValue = GameTutorial.getProperty("PYDT");
+  if (!pydtValue) return null;
+  try {
+    const parsed = JSON.parse(pydtValue);
+    return parsed.names[String(playerID)] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const HotseatCurtainComponent = (_props) => {
   let root;
   const localPlayerID = useLocalPlayerId();
   const player = createMemo(() => Players.get(localPlayerID()));
   const hotkeyContext = useHotkeyContext();
   const name = createMemo(() => {
+    const pydtName = getPydtPlayerName(localPlayerID());
+    if (pydtName) return pydtName;
     const currentPlayer = player();
     return currentPlayer ? Locale.compose(currentPlayer.name) : localPlayerID().toString();
   });
@@ -142,7 +157,10 @@ const HotseatCurtainComponent = (_props) => {
     }
   };
   const onSaveGame = () => {
-    GameTutorial.setProperty("PYDT", "PYDT_TURN|player=" + GameContext.localPlayerID + "|turn=" + Game.turn);
+    GameTutorial.setProperty("PYDT", JSON.stringify({
+      player: GameContext.localPlayerID,
+      turn: Game.turn
+    }));
     setVisible(false);
     DisplayQueueManager.suspend();
     pauseModel.onClickSave();
