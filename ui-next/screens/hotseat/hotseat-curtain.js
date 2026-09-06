@@ -76,8 +76,12 @@ const HotseatCurtainComponent = (_props) => {
   });
   const [visible, setVisible] = createSignal(true);
   const [externalRemove, setExternalRemove] = createSignal(false);
-  // Disabled when this is not the first curtain appearance in the session.
-  const [startTurnDisabled] = createSignal(turnStartedCount > 0);
+  // Defeated players have no turn to play, so their curtain must never block
+  // passing through to the next (possibly alive) player.
+  const playerIsAlive = createMemo(() => player()?.isAlive ?? true);
+  // Disabled when this is not the first curtain appearance in the session,
+  // unless the current player is defeated and just needs to be passed through.
+  const startTurnDisabled = createMemo(() => turnStartedCount > 0 && playerIsAlive());
   const pauseModel = createPauseMenuModel();
   createEffect(() => {
     if (visible()) {
@@ -170,7 +174,11 @@ const HotseatCurtainComponent = (_props) => {
   };
   const onStartTurn = () => {
     if (visible() && !startTurnDisabled()) {
-      turnStartedCount++;
+      // Passing through a defeated player's curtain isn't a real turn, so it
+      // shouldn't count against the one-turn-per-session limit.
+      if (playerIsAlive()) {
+        turnStartedCount++;
+      }
       removeCurtain();
     }
   };
