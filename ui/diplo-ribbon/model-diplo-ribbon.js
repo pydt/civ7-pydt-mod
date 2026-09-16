@@ -2,7 +2,6 @@ import { Audio } from '../../../core/ui/audio-base/audio-support.js';
 import { InterfaceMode } from '../../../core/ui/interface-modes/interface-modes.js';
 import { Icon } from '../../../core/ui/utilities/utilities-image.js';
 import DiplomacyManager from '../diplomacy/diplomacy-manager.js';
-import VictoryProgress from '../victory-progress/model-victory-progress.js';
 
 // PYDT: read the display name for a player from the PYDT save property.
 function getPydtPlayerName(playerID) {
@@ -35,7 +34,6 @@ var RibbonYieldType = /* @__PURE__ */ ((RibbonYieldType2) => {
   RibbonYieldType2["Trade"] = "trade";
   RibbonYieldType2["Settlements"] = "settlements";
   RibbonYieldType2["Property"] = "property";
-  RibbonYieldType2["Victory"] = "victory";
   return RibbonYieldType2;
 })(RibbonYieldType || {});
 var DiploRibbonRelgionIdeologyIconTints = /* @__PURE__ */ ((DiploRibbonRelgionIdeologyIconTints2) => {
@@ -194,7 +192,6 @@ class DiploRibbonModel {
   }
   updateAll() {
     this.getRibbonDisplayTypesFromUserOptions();
-    VictoryProgress.update();
     const playerList = Players.getAlive();
     const localPlayerID = GameContext.localObserverID;
     const localPlayer = Players.get(localPlayerID);
@@ -423,7 +420,6 @@ class DiploRibbonModel {
       displayItems: [],
       yields: [],
       size: [],
-      scores: [],
       canClick: this.canClick,
       selected: this.selected,
       isTurnActive: player.isTurnActive,
@@ -453,8 +449,7 @@ class DiploRibbonModel {
       dataObj.dealIds = Game.DiplomacyDeals.getDealIds(player.id) ?? [];
       dataObj.yields = this.createPlayerYieldsData(player, isLocal);
       dataObj.size = this.createPlayerSizeData(player, isLocal);
-      dataObj.scores = this.createPlayerScoreData(player);
-      dataObj.displayItems = dataObj.yields.concat(dataObj.size.concat(dataObj.scores));
+      dataObj.displayItems = dataObj.yields.concat(dataObj.size);
       dataObj.isAtWar = playerDiplomacy.isAtWarWith(GameContext.localPlayerID);
     }
     if (isLocal) {
@@ -595,34 +590,6 @@ class DiploRibbonModel {
     ];
     return sizeData;
   }
-  createPlayerScoreData(playerLibrary) {
-    if (!this.shouldShowYieldType(3 /* Scores */)) {
-      return [];
-    }
-    const scoresData = [];
-    for (const playerScore of VictoryProgress.playerScores) {
-      if (playerScore.playerID == playerLibrary.id) {
-        const victoryDefinition = GameInfo.Victories.lookup(playerScore.victoryType);
-        if (!victoryDefinition) {
-          console.error(
-            "model-diplo-ribbon: Unable to find victory definition for victoryType: " + playerScore.victoryType
-          );
-          continue;
-        }
-        scoresData.push({
-          type: "victory" /* Victory */,
-          label: Locale.compose(victoryDefinition.Name),
-          value: playerScore.score.toString() + "/" + playerScore.scoreGoal.toString(),
-          img: "<img src='" + playerScore.scoreIcon + "'>",
-          details: "",
-          rawValue: playerScore.score,
-          warningThreshold: Infinity
-        });
-      }
-    }
-    scoresData.sort((a, b) => a.label.localeCompare(b.label));
-    return scoresData;
-  }
   getImg(label, isLocal) {
     return "<img src='" + UI.getIconURL(label, isLocal ? "YIELD" : "YIELD") + "'>";
   }
@@ -642,7 +609,6 @@ class DiploRibbonModel {
           this.updatePlayerSize(playerID);
         }
         this.playerSizeUpdateQueue.clear();
-        VictoryProgress.update();
         for (const playerID of this.playerScoreUpdateQueue.queue) {
           this.updatePlayerScores(playerID);
         }
@@ -906,10 +872,7 @@ class DiploRibbonModel {
       );
       return;
     }
-    this._playerData[index].scores = this.createPlayerScoreData(playerLibrary);
-    this._playerData[index].displayItems = this._playerData[index].yields.concat(
-      this._playerData[index].size.concat(this._playerData[index].scores)
-    );
+    this._playerData[index].displayItems = this._playerData[index].yields.concat(this._playerData[index].size);
     if (playerID == GameContext.localPlayerID) {
       this._localPlayerStats = this._playerData[index].displayItems;
     }
@@ -937,9 +900,7 @@ class DiploRibbonModel {
     }
     const isLocal = playerID == GameContext.localPlayerID;
     this._playerData[index].yields = this.createPlayerYieldsData(playerLibrary, isLocal);
-    this._playerData[index].displayItems = this._playerData[index].yields.concat(
-      this._playerData[index].size.concat(this._playerData[index].scores)
-    );
+    this._playerData[index].displayItems = this._playerData[index].yields.concat(this._playerData[index].size);
     if (isLocal) {
       this._localPlayerStats = this._playerData[index].displayItems;
     }
@@ -967,9 +928,7 @@ class DiploRibbonModel {
     }
     const isLocal = playerID == GameContext.localPlayerID;
     this._playerData[index].size = this.createPlayerSizeData(playerLibrary, isLocal);
-    this._playerData[index].displayItems = this._playerData[index].yields.concat(
-      this._playerData[index].size.concat(this._playerData[index].scores)
-    );
+    this._playerData[index].displayItems = this._playerData[index].yields.concat(this._playerData[index].size);
     if (isLocal) {
       this._localPlayerStats = this._playerData[index].displayItems;
     }

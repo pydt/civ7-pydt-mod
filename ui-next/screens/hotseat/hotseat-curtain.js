@@ -1,6 +1,6 @@
 import { template, use, insert } from '../../../../core/vendor/solid-js/web/dist/web.js';
 import { createMemo, createSignal, createEffect, onMount, onCleanup, createComponent, Show, createRenderEffect } from '../../../../core/vendor/solid-js/dist/solid.js';
-import ContextManager from '../../../../core/ui/context-manager/context-manager.js';
+import { ContextManager } from '../../../../core/ui/context-manager/context-manager.js';
 import { DisplayQueueManager } from '../../../../core/ui/context-manager/display-queue-manager.js';
 import { PlotCursor } from '../../../../core/ui/input/plot-cursor.js';
 import { InterfaceMode, InterfaceModeChangedEventName } from '../../../../core/ui/interface-modes/interface-modes.js';
@@ -8,11 +8,13 @@ import { SaveLoadClosedEventName } from '../../../../core/ui/save-load/screen-sa
 import { getPlayerColorVariants } from '../../../../core/ui/utilities/utilities-color.js';
 import { Icon } from '../../../../core/ui/utilities/utilities-image.js';
 import { Activatable } from '../../../../core/ui-next/components/activatable.js';
+import { AudioContextProvider } from '../../../../core/ui-next/components/audio-context-provider.js';
 import { Button } from '../../../../core/ui-next/components/button.js';
 import { defineLegacyComponent } from '../../../../core/ui-next/components/fxs-solid-component.js';
 import { Header } from '../../../../core/ui-next/components/header.js';
 import { Icon as Icon$1 } from '../../../../core/ui-next/components/icon.js';
 import { L10n } from '../../../../core/ui-next/components/l10n.js';
+import { useAudio } from '../../../../core/ui-next/services/audio-support.js';
 import { ComponentRegistry } from '../../../../core/ui-next/services/component-registry.js';
 import { FocusManager } from '../../../../core/ui-next/services/focus-manager.js';
 import { useHotkeyContext } from '../../../../core/ui-next/services/hotkey.js';
@@ -20,7 +22,7 @@ import { IsControllerActive } from '../../../../core/ui-next/services/input.js';
 import { useLocalPlayerId } from '../../../../core/ui-next/utilities/game-core-utilities.js';
 import { createPauseMenuModel } from '../pause-menu/pause-menu-model.js';
 
-var _tmpl$ = /* @__PURE__ */ template(`<div class="ps-btn-icon ps-bar-pause"></div>`), _tmpl$2 = /* @__PURE__ */ template(`<div tabindex=-1 class="fixed flex justify-center items-center w-screen h-screen top-0 left-0 pointer-events-auto"><div class="absolute inset-0 bg-cover bg-no-repeat"></div><div class="absolute inset-0 bg-cover bg-no-repeat"></div><div class="absolute flex flex-col items-center min-w-128 p-3"><div class="absolute inset-0 img-unit-panelbox"><div class="absolute size-4 bg-contain rotate-180 top-3 left-2"></div><div class="absolute size-4 bg-contain -rotate-90 top-3 right-2"></div><div class="absolute size-4 bg-contain rotate-90 bottom-3 left-2"></div><div class="absolute size-4 bg-contain rotate-0 bottom-3 right-2"></div></div><div class="flex justify-center absolute"><div class="absolute -top-7 flex items-center justify-center pb-2"><div class="absolute w-28 h-32 bg-no-repeat bg-center bg-contain"></div><div class="absolute w-28 h-32 bg-no-repeat bg-center bg-contain"></div><div class="absolute inset-0 flex items-center justify-center pb-2"></div></div><div class="absolute flex justify-center items-center top-8"><div class="absolute size-11 bg-center bg-cover"></div><div class="absolute size-12 bg-center bg-cover"></div><div class="absolute size-9 bg-center bg-cover"></div></div></div><div class="relative flex justify-center"><div class="w-48 h-7 bg-contain -rotate-y-180"></div><div class="w-48 h-7 bg-contain ml-12"></div></div><div class="relative mt-5 mb-1 pointer-events-auto font-body text-xs text-secondary-2"></div><div class="relative filigree-divider-h3"></div><div class="flex justify-center mx-8"></div></div></div>`);
+var _tmpl$ = /* @__PURE__ */ template(`<div class="ps-btn-icon ps-bar-pause"></div>`), _tmpl$2 = /* @__PURE__ */ template(`<div tabindex="-1"class="fixed flex justify-center items-center w-screen h-screen top-0 left-0 pointer-events-auto"><div class="absolute inset-0 bg-cover bg-no-repeat"></div><div class="absolute inset-0 bg-cover bg-no-repeat"></div><div class="absolute flex flex-col items-center min-w-128 p-3"><div class="absolute inset-0 img-unit-panelbox"><div class="absolute size-4 bg-contain rotate-180 top-3 left-2"></div><div class="absolute size-4 bg-contain -rotate-90 top-3 right-2"></div><div class="absolute size-4 bg-contain rotate-90 bottom-3 left-2"></div><div class="absolute size-4 bg-contain rotate-0 bottom-3 right-2"></div></div><div class="flex justify-center absolute"><div class="absolute -top-7 flex items-center justify-center pb-2"><div class="absolute w-28 h-32 bg-no-repeat bg-center bg-contain"></div><div class="absolute w-28 h-32 bg-no-repeat bg-center bg-contain"></div><div class="absolute inset-0 flex items-center justify-center pb-2"></div></div><div class="absolute flex justify-center items-center top-8"><div class="absolute size-11 bg-center bg-cover"></div><div class="absolute size-12 bg-center bg-cover"></div><div class="absolute size-9 bg-center bg-cover"></div></div></div><div class="relative flex justify-center"><div class="w-48 h-7 bg-contain -rotate-y-180"></div><div class="w-48 h-7 bg-contain ml-12"></div></div><div class="relative mt-5 mb-1 pointer-events-auto font-body text-xs text-secondary-2"role="heading"></div><div class="relative filigree-divider-h3"></div><div class="flex justify-center mx-8"></div></div></div>`);
 
 // Tracks how many turns have been started in this game session.
 // Persists across component instances so the second curtain appearance is disabled.
@@ -44,6 +46,7 @@ const HotseatCurtainComponent = (_props) => {
   const localPlayerID = useLocalPlayerId();
   const player = createMemo(() => Players.get(localPlayerID()));
   const hotkeyContext = useHotkeyContext();
+  const [lastKnownPlayer, setLastKnownPlayer] = createSignal(localPlayerID());
   const name = createMemo(() => {
     const pydtName = getPydtPlayerName(localPlayerID());
     if (pydtName) return pydtName;
@@ -89,16 +92,27 @@ const HotseatCurtainComponent = (_props) => {
       hotkeyContext.refresh();
     }
   });
+  const audio = useAudio("Hotseat");
   onMount(() => {
     DisplayQueueManager.suspend();
     InterfaceMode.switchTo("INTERFACEMODE_HOTSEAT");
+    engine.on("AutoplayStarted", onAutoplayStarted);
+    engine.on("PlayerTurnActivated", onPlayerTurnActivated);
     window.addEventListener("navigate-input", onNavigateInput);
     window.addEventListener("engine-input", onEngineInput);
     window.addEventListener(SaveLoadClosedEventName, onSaveClosed);
     window.addEventListener(InterfaceModeChangedEventName, onInterfaceModeChanged);
     Network.hotseatCurtainChanged(true);
+    audio("popup-open");
+    if (Autoplay.isActive) {
+      waitForLayout(() => {
+        onStartTurn();
+      });
+    }
   });
   onCleanup(() => {
+    engine.off("AutoplayStarted", onAutoplayStarted);
+    engine.off("PlayerTurnActivated", onPlayerTurnActivated);
     window.removeEventListener("navigate-input", onNavigateInput);
     window.removeEventListener("engine-input", onEngineInput);
     window.removeEventListener(SaveLoadClosedEventName, onSaveClosed);
@@ -115,6 +129,12 @@ const HotseatCurtainComponent = (_props) => {
       });
     }
   });
+  const onAutoplayStarted = () => {
+    onStartTurn();
+  };
+  const onPlayerTurnActivated = (data) => {
+    setLastKnownPlayer(data.player);
+  };
   const tryFocusOnCapital = () => {
     const player2 = Players.get(GameContext.localPlayerID);
     if (player2) {
@@ -129,9 +149,10 @@ const HotseatCurtainComponent = (_props) => {
   };
   const sendTurnStartAcknowledgement = () => {
     const args = {};
-    const result = Game.PlayerOperations.canStart(localPlayerID(), PlayerOperationTypes.ACKNOWLEDGE_TURN_START, args, false);
+    const playerID = Autoplay.isActive ? lastKnownPlayer() : localPlayerID();
+    const result = Game.PlayerOperations.canStart(playerID, PlayerOperationTypes.ACKNOWLEDGE_TURN_START, args, false);
     if (result.Success) {
-      Game.PlayerOperations.sendRequest(localPlayerID(), PlayerOperationTypes.ACKNOWLEDGE_TURN_START, args);
+      Game.PlayerOperations.sendRequest(playerID, PlayerOperationTypes.ACKNOWLEDGE_TURN_START, args);
     }
   };
   const onNavigateInput = (navigationEvent) => {
@@ -143,7 +164,7 @@ const HotseatCurtainComponent = (_props) => {
       name: name2,
       status
     } = inputEvent.detail;
-    if (status != InputActionStatuses.FINISH) {
+    if (status != InputActionStatuses.FINISH || !visible()) {
       return;
     }
     if (name2 == "sys-menu") {
@@ -265,30 +286,40 @@ const HotseatCurtainComponent = (_props) => {
           });
         }
       }), null);
-      insert(_el$24, createComponent(Button, {
-        navTrayText: "LOC_HOTSEAT_START_TURN",
-        hotkeyAction: "accept",
-        "class": "text-xs h-12",
-        get disabled() { return startTurnDisabled(); },
-        onActivate: onStartTurn,
+      insert(_el$24, createComponent(AudioContextProvider, {
+        segment: "Hotseat",
         get children() {
-          return createComponent(L10n.Compose, {
-            text: "LOC_HOTSEAT_START_TURN"
+          return createComponent(Button, {
+            navTrayText: "LOC_HOTSEAT_START_TURN",
+            hotkeyAction: "accept",
+            "class": "text-xs h-12",
+            get disabled() { return startTurnDisabled(); },
+            onActivate: onStartTurn,
+            get children() {
+              return createComponent(L10n.Compose, {
+                text: "LOC_HOTSEAT_START_TURN"
+              });
+            }
           });
         }
       }), null);
-      insert(_el$, createComponent(Activatable, {
-        "class": "ps-btn top-0 right-0",
-        get ["data-tooltip-content"]() {
-          return Locale.compose("LOC_UI_PAUSE");
-        },
-        navTrayText: "LOC_UI_PAUSE",
-        hotkeyAction: "sys-menu",
-        onActivate: onShowPauseMenu,
+      insert(_el$, createComponent(AudioContextProvider, {
+        segment: "hotseat",
         get children() {
-          var _el$25 = _tmpl$();
-          _el$25.style.setProperty("background-image", "url(blp:System_Pause)");
-          return _el$25;
+          return createComponent(Activatable, {
+            "class": "ps-btn top-0 right-0",
+            get ["data-tooltip-content"]() {
+              return Locale.compose("LOC_UI_PAUSE");
+            },
+            navTrayText: "LOC_UI_PAUSE",
+            hotkeyAction: "sys-menu",
+            onActivate: onShowPauseMenu,
+            get children() {
+              var _el$25 = _tmpl$();
+              _el$25.style.setProperty("background-image", "url(blp:System_Pause)");
+              return _el$25;
+            }
+          });
         }
       }), null);
       createRenderEffect((_p$) => {
